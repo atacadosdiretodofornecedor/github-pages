@@ -1,0 +1,1242 @@
+// client/src/App.tsx
+import { Route, Switch } from "wouter";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import Home from "@/pages/Home";
+import NotFound from "@/pages/not-found";
+import { Toaster } from "@/components/ui/toaster";
+function Router() {
+  return (
+    <Switch>
+      <Route path="/" component={Home} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router />
+      <Toaster />
+    </QueryClientProvider>
+  );
+}
+export default App;
+// client/src/main.tsx
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./index.css";
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
+// client/src/index.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 85.7% 97.3%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 217.2 91.2% 59.8%;
+  }
+}
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+// client/src/lib/queryClient.ts
+import { QueryClient } from "@tanstack/react-query";
+async function throwIfResNotOk(res: Response) {
+  if (!res.ok) {
+    try {
+      const errorJson = await res.json();
+      throw new Error(errorJson.message || res.statusText);
+    } catch (e) {
+      if (e instanceof SyntaxError) {
+        throw new Error(res.statusText);
+      }
+      throw e;
+    }
+  }
+}
+export async function apiRequest(
+  url: string,
+  options: RequestInit = {}
+): Promise<any> {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+  await throwIfResNotOk(res);
+  return res.json();
+}
+type UnauthorizedBehavior = "returnNull" | "throw";
+export const getQueryFn: <T>(options: {
+  on401: UnauthorizedBehavior;
+}) => (ctx: { queryKey: string[] }) => Promise<T> =
+  ({ on401 }) =>
+  async ({ queryKey }) => {
+    try {
+      const [url] = queryKey;
+      const res = await fetch(url);
+      if (res.status === 401) {
+        if (on401 === "returnNull") {
+          return null as T;
+        } else {
+          throw new Error("Unauthorized");
+        }
+      }
+      await throwIfResNotOk(res);
+      return res.json();
+    } catch (error) {
+      throw error;
+    }
+  };
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: false,
+      queryFn: getQueryFn<any>({ on401: "throw" }),
+    },
+  },
+});
+// client/src/lib/utils.ts
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+// client/src/pages/not-found.tsx
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+export default function NotFound() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+      <h1 className="text-6xl font-bold mb-4">404</h1>
+      <h2 className="text-2xl font-semibold mb-4">Página não encontrada</h2>
+      <p className="text-gray-600 mb-6 max-w-md">
+        Desculpe, não conseguimos encontrar a página que você está procurando.
+      </p>
+      <Button asChild>
+        <Link href="/">Voltar para a página inicial</Link>
+      </Button>
+    </div>
+  );
+}
+// client/src/pages/Home.tsx
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ShoppingCart, Truck, CheckCircle, ShieldCheck, Lock, Heart, Star, Search, Menu, User, PercentIcon, Clock } from "lucide-react";
+import { useState } from "react";
+const categories = [
+  "Smartphones", "Eletrodomésticos", "Áudio", "Casa e Decoração", 
+  "Esporte e Fitness", "Informática", "TV e Vídeo", "Todos os Produtos"
+];
+const products = [
+  // Smartphones e Eletrônicos
+  { id: 1, name: "Smartphone Xiaomi Redmi Note 13 5G (256 GB)", price: "R$ 249,90", originalPrice: "R$ 499,90", discount: "50%", rating: 4.5, category: "Smartphones", isNew: true },
+  { id: 2, name: "Moto G85 (256 GB)", price: "R$ 214,95", originalPrice: "R$ 429,90", discount: "50%", rating: 4.3, category: "Smartphones" },
+  { id: 3, name: "iPhone 15 Pro (128GB)", price: "R$ 4.399,50", originalPrice: "R$ 8.799,00", discount: "50%", rating: 4.9, category: "Smartphones", isNew: true },
+  { id: 4, name: "Samsung Galaxy S24 Ultra (256GB)", price: "R$ 3.749,50", originalPrice: "R$ 7.499,00", discount: "50%", rating: 4.8, category: "Smartphones", isNew: true },
+  { id: 5, name: "Tablet Samsung Galaxy Tab S9", price: "R$ 2.499,50", originalPrice: "R$ 4.999,00", discount: "50%", rating: 4.7, category: "Eletrônicos", isNew: true },
+  { id: 6, name: "Notebook Gamer Acer Nitro 5", price: "R$ 3.199,50", originalPrice: "R$ 6.399,00", discount: "50%", rating: 4.6, category: "Informática", isNew: true },
+  { id: 7, name: "iPad Pro M2 (512GB)", price: "R$ 4.849,50", originalPrice: "R$ 9.699,00", discount: "50%", rating: 4.9, category: "Eletrônicos", isNew: true },
+  { id: 8, name: "Notebook Lenovo IdeaPad 3", price: "R$ 499,95", originalPrice: "R$ 999,90", discount: "50%", rating: 4.6, category: "Informática" },
+  { id: 9, name: "PlayStation 5 Slim", price: "R$ 2.249,50", originalPrice: "R$ 4.499,00", discount: "50%", rating: 4.9, category: "Eletrônicos", isNew: true },
+  { id: 10, name: "Xbox Series X", price: "R$ 2.149,50", originalPrice: "R$ 4.299,00", discount: "50%", rating: 4.8, category: "Eletrônicos", isNew: true },
+  { id: 11, name: "Fones de Ouvido Apple AirPods Pro 2", price: "R$ 624,50", originalPrice: "R$ 1.249,00", discount: "50%", rating: 4.8, category: "Áudio", isNew: true },
+  { id: 12, name: "Headphone Philips TAH1108BK", price: "R$ 29,95", originalPrice: "R$ 59,90", discount: "50%", rating: 4.0, category: "Áudio" },
+  { id: 13, name: "Echo Dot 5ª Geração", price: "R$ 54,95", originalPrice: "R$ 109,90", discount: "50%", rating: 4.8, category: "Áudio" },
+  
+  // Eletrodomésticos e Casa
+  { id: 14, name: "Micro-ondas Electrolux MTO30 20 L", price: "R$ 94,95", originalPrice: "R$ 189,90", discount: "50%", rating: 4.7, category: "Eletrodomésticos" },
+  { id: 15, name: "Purificador de Água Consul CPB34AF", price: "R$ 74,95", originalPrice: "R$ 149,90", discount: "50%", rating: 4.2, category: "Eletrodomésticos" },
+  { id: 16, name: "Geladeira Brastemp Frost Free Inverse 443L", price: "R$ 2.649,50", originalPrice: "R$ 5.299,00", discount: "50%", rating: 4.7, category: "Eletrodomésticos", isNew: true },
+  { id: 17, name: "Fogão 5 Bocas Consul Inox", price: "R$ 649,50", originalPrice: "R$ 1.299,00", discount: "50%", rating: 4.5, category: "Eletrodomésticos", isNew: true },
+  { id: 18, name: "Smart TV Samsung 65\" 4K UHD", price: "R$ 2.099,50", originalPrice: "R$ 4.199,00", discount: "50%", rating: 4.8, category: "TV e Vídeo", isNew: true },
+  { id: 19, name: "Smart TV LG 55\" OLED 4K", price: "R$ 2.999,50", originalPrice: "R$ 5.999,00", discount: "50%", rating: 4.9, category: "TV e Vídeo", isNew: true },
+  { id: 20, name: "Aspirador de Pó Robô WAP Robot W90", price: "R$ 149,95", originalPrice: "R$ 299,90", discount: "50%", rating: 4.6, category: "Eletrodomésticos" },
+  { id: 21, name: "Máquina de Lavar 12kg Samsung", price: "R$ 899,50", originalPrice: "R$ 1.799,00", discount: "50%", rating: 4.6, category: "Eletrodomésticos", isNew: true },
+  { id: 22, name: "Cooktop 5 Bocas Electrolux", price: "R$ 164,95", originalPrice: "R$ 329,90", discount: "50%", rating: 4.3, category: "Eletrodomésticos" },
+  
+  // Casa e Decoração
+  { id: 23, name: "Cama Box Casal Ortobom", price: "R$ 299,95", originalPrice: "R$ 599,90", discount: "50%", rating: 4.7, category: "Casa e Decoração" },
+  { id: 24, name: "Sofá Retrátil 3 Lugares", price: "R$ 399,95", originalPrice: "R$ 799,90", discount: "50%", rating: 4.4, category: "Casa e Decoração" },
+  { id: 25, name: "Rack para TV 55\" Moderno", price: "R$ 124,95", originalPrice: "R$ 249,90", discount: "50%", rating: 4.3, category: "Casa e Decoração" },
+  { id: 26, name: "Colchão Ortopédico Queen Size", price: "R$ 549,50", originalPrice: "R$ 1.099,00", discount: "50%", rating: 4.7, category: "Casa e Decoração", isNew: true },
+  { id: 27, name: "Jogo de Panelas Tramontina Antiaderente 10 peças", price: "R$ 174,50", originalPrice: "R$ 349,00", discount: "50%", rating: 4.8, category: "Casa e Decoração", isNew: true },
+  { id: 28, name: "Kit 6 Cadeiras para Sala de Jantar", price: "R$ 349,50", originalPrice: "R$ 699,00", discount: "50%", rating: 4.5, category: "Casa e Decoração", isNew: true },
+  
+  // Esporte e Fitness
+  { id: 29, name: "Esteira Elétrica Residencial", price: "R$ 949,50", originalPrice: "R$ 1.899,00", discount: "50%", rating: 4.6, category: "Esporte e Fitness", isNew: true },
+  { id: 30, name: "Bicicleta Ergométrica Spinning", price: "R$ 249,95", originalPrice: "R$ 499,90", discount: "50%", rating: 4.4, category: "Esporte e Fitness" },
+  { id: 31, name: "Halteres Ajustáveis 10kg", price: "R$ 84,95", originalPrice: "R$ 169,90", discount: "50%", rating: 4.5, category: "Esporte e Fitness" },
+  { id: 32, name: "Suplemento Whey Protein 900g", price: "R$ 34,95", originalPrice: "R$ 69,90", discount: "50%", rating: 4.6, category: "Esporte e Fitness" },
+  { id: 33, name: "Kit 3 Bermudas Moletom Masculina", price: "R$ 54,50", originalPrice: "R$ 109,00", discount: "50%", rating: 4.3, category: "Esporte e Fitness", isNew: true },
+  { id: 34, name: "Tênis Nike Air Zoom Pegasus 39", price: "R$ 249,50", originalPrice: "R$ 499,00", discount: "50%", rating: 4.7, category: "Esporte e Fitness", isNew: true },
+  
+  // Automotivo
+  { id: 35, name: "Pneu Aro 14 Goodyear 175/65R14 82T", price: "R$ 149,95", originalPrice: "R$ 299,90", discount: "50%", rating: 4.5, category: "Automotivo" },
+  { id: 36, name: "Kit 4 Pneus Michelin Aro 16", price: "R$ 899,50", originalPrice: "R$ 1.799,00", discount: "50%", rating: 4.7, category: "Automotivo", isNew: true },
+  { id: 37, name: "Caixa de Som Automotiva Subwoofer 12\"", price: "R$ 124,50", originalPrice: "R$ 249,00", discount: "50%", rating: 4.4, category: "Automotivo", isNew: true },
+  { id: 38, name: "Bateria Automotiva Moura 60Ah", price: "R$ 274,50", originalPrice: "R$ 549,00", discount: "50%", rating: 4.6, category: "Automotivo", isNew: true },
+  
+  // Informática e Acessórios
+  { id: 39, name: "Cadeira Gamer RGB", price: "R$ 299,95", originalPrice: "R$ 599,90", discount: "50%", rating: 4.7, category: "Informática" },
+  { id: 40, name: "Teclado Mecânico Gamer RGB", price: "R$ 124,50", originalPrice: "R$ 249,00", discount: "50%", rating: 4.6, category: "Informática", isNew: true },
+  { id: 41, name: "Mouse Gamer Logitech G502", price: "R$ 149,50", originalPrice: "R$ 299,00", discount: "50%", rating: 4.8, category: "Informática", isNew: true },
+  { id: 42, name: "Monitor Gamer 27\" 144Hz", price: "R$ 699,50", originalPrice: "R$ 1.399,00", discount: "50%", rating: 4.7, category: "Informática", isNew: true },
+  { id: 43, name: "SSD 1TB NVMe", price: "R$ 249,50", originalPrice: "R$ 499,00", discount: "50%", rating: 4.9, category: "Informática", isNew: true },
+  { id: 44, name: "Placa de Vídeo NVIDIA RTX 4060", price: "R$ 1.499,50", originalPrice: "R$ 2.999,00", discount: "50%", rating: 4.7, category: "Informática", isNew: true }
+];
+const whatsappNumber = "5588999999999";
+const ProductCard = ({ product }: { product: typeof products[0] }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  // Função para gerar uma cor hexadecimal aleatória para os backgrounds dos produtos
+  const getRandomColor = () => {
+    const colors = ['#f0f9ff', '#ecfdf5', '#f5f3ff', '#fef2f2', '#fffbeb', '#f0fdf4'];
+    return colors[product.id % colors.length];
+  };
+  return (
+    <Card 
+      className={`overflow-hidden h-full flex flex-col transition-all duration-300 hover:shadow-lg border ${
+        product.isNew ? 'border-yellow-400' : 'border-gray-200'
+      }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="relative">
+        {/* Indicador de desconto */}
+        <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full z-10">
+          {product.discount}
+        </div>
+        
+        {/* Indicador de novo produto */}
+        {product.isNew && (
+          <div className="absolute top-2 left-16 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full z-10">
+            NOVO
+          </div>
+        )}
+        
+        {/* Botão de favorito */}
+        <div className="absolute top-2 right-2 p-1 rounded-full bg-white/80 backdrop-blur-sm z-10">
+          <Heart size={20} className="text-gray-500 hover:text-red-500 cursor-pointer" />
+        </div>
+        
+        {/* Imagem do produto */}
+        <div 
+          className={`flex items-center justify-center p-6 transition-all duration-500 ${isHovered ? 'scale-105' : ''}`}
+          style={{ 
+            height: "200px", 
+            backgroundColor: product.isNew ? '#fffbeb' : getRandomColor(),
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+        >
+          {/* Flash de oferta */}
+          <div className="absolute -right-12 top-4 w-40 transform rotate-45 bg-red-600 text-white text-xs font-bold text-center py-1 shadow-md">
+            OFERTA
+          </div>
+          
+          {/* Emoji do produto */}
+          <div className={`text-6xl transition-transform duration-300 ${isHovered ? 'scale-110' : ''}`}>
+            {getProductEmoji(product.category)}
+          </div>
+        </div>
+      </div>
+      
+      <CardContent className="flex-1 flex flex-col p-4">
+        {/* Categoria */}
+        <div className="flex items-center text-xs text-gray-500 mb-2">
+          <span>{product.category}</span>
+          {product.isNew && (
+            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+              Lançamento
+            </span>
+          )}
+        </div>
+        
+        {/* Nome do produto */}
+        <h2 className="text-sm font-medium mb-1 line-clamp-2 h-10">{product.name}</h2>
+        
+        {/* Avaliações */}
+        <div className="flex items-center mb-2">
+          <div className="flex">
+            {[...Array(5)].map((_, i) => (
+              <Star 
+                key={i} 
+                size={14} 
+                className={i < Math.floor(product.rating) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"} 
+              />
+            ))}
+          </div>
+          <span className="text-xs text-gray-500 ml-1">({product.rating})</span>
+        </div>
+        
+        {/* Preços */}
+        <div className="mt-auto">
+          <div className="flex items-center mb-1">
+            <p className="text-xs line-through text-gray-500 mr-2">{product.originalPrice}</p>
+            <p className="text-xs font-medium bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{product.discount} OFF</p>
+          </div>
+          <p className="text-2xl font-bold text-primary mb-2">
+            {product.price}
+            <span className="text-xs font-normal text-gray-500 ml-1">à vista</span>
+          </p>
+          
+          {/* Botão de compra */}
+          <Button 
+            className={`w-full flex gap-2 items-center justify-center transition-all duration-300 ${isHovered ? 'bg-green-600 hover:bg-green-700' : ''}`}
+            onClick={() => window.open(`https://wa.me/${whatsappNumber}?text=Olá! Estou interessado no produto: ${product.name} por apenas ${product.price}. Gostaria de mais informações.`, '_blank')}
+          >
+            <ShoppingCart size={16} /> Comprar via WhatsApp
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+// Função para retornar um emoji baseado na categoria
+const getProductEmoji = (category: string) => {
+  const categoryEmojis: Record<string, string> = {
+    'Smartphones': '📱',
+    'Eletrodomésticos': '🔌',
+    'Áudio': '🎧',
+    'Automotivo': '🚗',
+    'Casa e Decoração': '🏠',
+    'Eletrônicos': '🎮',
+    'Esporte e Fitness': '💪',
+    'Informática': '💻',
+    'TV e Vídeo': '📺'
+  };
+  
+  return categoryEmojis[category] || '📦';
+};
+export default function Home() {
+  const [selectedCategory, setSelectedCategory] = useState("Todos os Produtos");
+  
+  const filteredProducts = selectedCategory === "Todos os Produtos" 
+    ? products 
+    : products.filter(p => p.category === selectedCategory);
+  
+  return (
+    <div className="flex flex-col min-h-screen">
+      {/* Header */}
+      <header className="bg-blue-600 text-white">
+        {/* Barra superior */}
+        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Menu size={24} className="cursor-pointer" />
+            <h1 className="text-xl font-bold">MegaOferta</h1>
+          </div>
+          
+          {/* Barra de busca */}
+          <div className="hidden md:flex items-center flex-1 max-w-xl mx-4">
+            <div className="relative w-full">
+              <input 
+                type="text" 
+                placeholder="O que você está procurando hoje?" 
+                className="w-full py-2 px-4 pr-10 rounded-full text-black focus:outline-none"
+              />
+              <Search size={20} className="absolute right-3 top-2.5 text-gray-500" />
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <User size={24} className="cursor-pointer" />
+          </div>
+        </div>
+        
+        {/* Categorias */}
+        <div className="bg-blue-700 overflow-auto">
+          <div className="container mx-auto px-4 py-2 flex space-x-4">
+            {categories.map((category) => (
+              <button
+                key={category}
+                className={`whitespace-nowrap px-3 py-1 rounded-full text-sm ${
+                  selectedCategory === category 
+                    ? 'bg-white text-blue-700 font-medium' 
+                    : 'text-white hover:bg-blue-800'
+                }`}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+      
+      {/* Banner promocional */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-8 md:py-12 relative overflow-hidden">
+        {/* Elementos decorativos */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20">
+          <div className="absolute -top-5 -left-5 w-20 h-20 rounded-full bg-yellow-400 blur-xl"></div>
+          <div className="absolute top-1/4 right-1/4 w-32 h-32 rounded-full bg-red-500 blur-xl"></div>
+          <div className="absolute bottom-10 left-1/3 w-24 h-24 rounded-full bg-blue-300 blur-xl"></div>
+        </div>
+        
+        {/* Selo de 50% OFF */}
+        <div className="absolute right-4 md:right-12 top-4 md:top-8 bg-red-600 rounded-full w-16 h-16 md:w-24 md:h-24 flex items-center justify-center transform rotate-12 shadow-lg">
+          <div className="text-center">
+            <div className="text-xl md:text-3xl font-extrabold">50%</div>
+            <div className="text-xs md:text-sm font-bold">OFF</div>
+          </div>
+        </div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-2xl">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold mb-4">
+              Preços Imbatíveis <span className="text-yellow-300">Promoção 50% OFF</span>
+            </h1>
+            <p className="text-lg md:text-xl mb-6 opacity-90">
+              Todos os produtos com metade do preço! Aproveite essa oportunidade incrível e economize em todas as categorias.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <Button size="lg" className="bg-white text-blue-700 hover:bg-blue-50 font-semibold text-base">
+                Ver ofertas
+              </Button>
+              <Button variant="outline" size="lg" className="bg-transparent border-white text-white hover:bg-white/20 font-semibold text-base">
+                <Clock size={20} className="mr-2" /> Ofertas por tempo limitado
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Seção de flash sale */}
+      <div className="bg-red-50 py-8">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <PercentIcon size={24} className="text-red-600 mr-2" />
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900">Flash Sale</h2>
+            </div>
+            <div className="flex items-center bg-red-100 rounded-full px-4 py-1.5">
+              <Clock size={16} className="text-red-600 mr-1" />
+              <span className="text-sm font-medium text-red-600">Termina em: 1d 12h 32m</span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {products.filter(p => p.isNew).slice(0, 4).map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Vantagens */}
+      <div className="bg-white py-8">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200">
+              <div className="bg-blue-100 p-2 rounded-full">
+                <Truck size={24} className="text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-medium">Frete Grátis</h3>
+                <p className="text-sm text-gray-500">Em compras acima de R$ 99</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200">
+              <div className="bg-green-100 p-2 rounded-full">
+                <CheckCircle size={24} className="text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-medium">Qualidade Garantida</h3>
+                <p className="text-sm text-gray-500">Produtos selecionados</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200">
+              <div className="bg-purple-100 p-2 rounded-full">
+                <ShieldCheck size={24} className="text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-medium">Compra Segura</h3>
+                <p className="text-sm text-gray-500">Garantia de satisfação</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200">
+              <div className="bg-orange-100 p-2 rounded-full">
+                <Lock size={24} className="text-orange-600" />
+              </div>
+              <div>
+                <h3 className="font-medium">Pagamento Seguro</h3>
+                <p className="text-sm text-gray-500">Direto via WhatsApp</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Produtos */}
+      <div className="bg-gray-50 py-8">
+        <div className="container mx-auto px-4">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900">
+            {selectedCategory === "Todos os Produtos" ? "Nossos Produtos" : selectedCategory}
+            <span className="text-gray-500 text-sm font-normal ml-2">{filteredProducts.length} produtos</span>
+          </h2>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {filteredProducts.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+          
+          {filteredProducts.length > 16 && (
+            <div className="mt-8 text-center">
+              <Button variant="outline" size="lg">
+                Carregar mais produtos
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-8">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+            <div>
+              <h3 className="text-lg font-bold mb-4">MegaOferta</h3>
+              <p className="text-gray-400 mb-4">Os melhores produtos com os menores preços do mercado. Atacado direto para você!</p>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold mb-4">Categorias</h3>
+              <ul className="space-y-2">
+                {categories.slice(0, 6).map(category => (
+                  <li key={category} className="text-gray-400 hover:text-white cursor-pointer">{category}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold mb-4">Atendimento</h3>
+              <ul className="space-y-2">
+                <li className="text-gray-400">WhatsApp: (88) 99999-9999</li>
+                <li className="text-gray-400">Email: contato@megaoferta.com</li>
+                <li className="text-gray-400">Horário: Seg-Sex 8h às 18h</li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 pt-4 text-center text-gray-500 text-sm">
+            © 2025 MegaOferta. Todos os direitos reservados.
+            <div className="mt-2">
+              <a 
+                href="/deploy-guide.html" 
+                target="_blank" 
+                className="text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                Guia de Deploy Gratuito (GitHub Pages, Netlify, Vercel)
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+// server/index.ts
+import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes";
+import { setupVite, serveStatic, log } from "./vite";
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+      log(logLine);
+    }
+  });
+  next();
+});
+(async () => {
+  const server = await registerRoutes(app);
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    res.status(status).json({ message });
+    throw err;
+  });
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+  // ALWAYS serve the app on port 5000
+  // this serves both the API and the client.
+  // It is the only port that is not firewalled.
+  const port = 5000;
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  }, () => {
+    log(`serving on port ${port}`);
+  });
+})();
+// server/routes.ts
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { insertWaitlistSchema } from "@shared/schema";
+import path from "path";
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve deploy guide static file
+  app.get('/deploy-guide.html', (req, res) => {
+    res.sendFile(path.resolve('.', 'deploy-guide.html'));
+  });
+  // Add API routes
+  app.post("/api/waitlist", async (req, res) => {
+    try {
+      // Validate request body
+      const result = insertWaitlistSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        return res.status(400).json({
+          message: "Invalid input",
+          errors: result.error.errors
+        });
+      }
+      
+      // Add to waitlist
+      const entry = await storage.addToWaitlist(result.data);
+      
+      return res.status(201).json({
+        message: "Successfully added to waitlist",
+        data: {
+          id: entry.id,
+          email: entry.email
+        }
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "Email already registered") {
+        return res.status(409).json({ message: error.message });
+      }
+      
+      console.error("Error adding to waitlist:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  // Get waitlist count
+  app.get("/api/waitlist/count", async (req, res) => {
+    try {
+      const count = await storage.getWaitlistCount();
+      return res.status(200).json({ count });
+    } catch (error) {
+      console.error("Error getting waitlist count:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  const httpServer = createServer(app);
+  return httpServer;
+}
+// server/storage.ts
+import { InsertWaitlist, Waitlist } from "@shared/schema";
+export interface IStorage {
+  addToWaitlist(entry: InsertWaitlist): Promise<Waitlist>;
+  getWaitlistEntryByEmail(email: string): Promise<Waitlist | undefined>;
+  getWaitlistCount(): Promise<number>;
+}
+export class MemStorage implements IStorage {
+  private waitlist: Map<number, Waitlist>;
+  private currentId: number;
+  constructor() {
+    this.waitlist = new Map();
+    this.currentId = 1;
+  }
+  async addToWaitlist(entry: InsertWaitlist): Promise<Waitlist> {
+    // Check if email already exists
+    const existingEntry = await this.getWaitlistEntryByEmail(entry.email);
+    if (existingEntry) {
+      throw new Error("Email already registered");
+    }
+    
+    const newEntry: Waitlist = { 
+      id: this.currentId++,
+      email: entry.email,
+      name: entry.name,
+      createdAt: new Date()
+    };
+    
+    this.waitlist.set(newEntry.id, newEntry);
+    return newEntry;
+  }
+  async getWaitlistEntryByEmail(email: string): Promise<Waitlist | undefined> {
+    for (const entry of this.waitlist.values()) {
+      if (entry.email === email) {
+        return entry;
+      }
+    }
+    return undefined;
+  }
+  async getWaitlistCount(): Promise<number> {
+    return this.waitlist.size;
+  }
+}
+export const storage = new MemStorage();
+// server/vite.ts
+import express, { type Express } from "express";
+import fs from "fs";
+import path from "path";
+import { createServer as createViteServer, createLogger } from "vite";
+import { type Server } from "http";
+import viteConfig from "../vite.config";
+import { nanoid } from "nanoid";
+const viteLogger = createLogger();
+export function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+export async function setupVite(app: Express, server: Server) {
+  const serverOptions = {
+    middlewareMode: true,
+    hmr: { server },
+    allowedHosts: true,
+  };
+  const vite = await createViteServer({
+    ...viteConfig,
+    configFile: false,
+    customLogger: {
+      ...viteLogger,
+      error: (msg, options) => {
+        viteLogger.error(msg, options);
+        process.exit(1);
+      },
+    },
+    server: serverOptions,
+    appType: "custom",
+  });
+  app.use(vite.middlewares);
+  app.use("*", async (req, res, next) => {
+    const url = req.originalUrl;
+    try {
+      const clientTemplate = path.resolve(
+        import.meta.dirname,
+        "..",
+        "client",
+        "index.html",
+      );
+      // always reload the index.html file from disk incase it changes
+      let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      template = template.replace(
+        `src="/src/main.tsx"`,
+        `src="/src/main.tsx?v=${nanoid()}"`,
+      );
+      const page = await vite.transformIndexHtml(url, template);
+      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+    } catch (e) {
+      vite.ssrFixStacktrace(e as Error);
+      next(e);
+    }
+  });
+}
+export function serveStatic(app: Express) {
+  const distPath = path.resolve(import.meta.dirname, "public");
+  if (!fs.existsSync(distPath)) {
+    throw new Error(
+      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+    );
+  }
+  app.use(express.static(distPath));
+  // fall through to index.html if the file doesn't exist
+  app.use("*", (_req, res) => {
+    res.sendFile(path.resolve(distPath, "index.html"));
+  });
+}
+// shared/schema.ts
+import { pgTable, serial, timestamp, varchar, text } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+export const waitlist = pgTable("waitlist", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+export const insertWaitlistSchema = createInsertSchema(waitlist).pick({
+  email: true,
+  name: true
+});
+export type InsertWaitlist = z.infer<typeof insertWaitlistSchema>;
+export type Waitlist = typeof waitlist.$inferSelect;
+// client/index.html
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MegaOferta - Produtos com 50% de Desconto</title>
+    <meta name="description" content="A melhor loja de promoções com 50% de desconto em todos os produtos. Smartphones, eletrodomésticos, informática e muito mais!">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+// Guia de Deploy (deploy-guide.html)
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guia de Deploy Gratuito - MegaOferta</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #0066cc;
+        }
+        code {
+            background-color: #f5f5f5;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .note {
+            background-color: #fffacd;
+            padding: 10px;
+            border-left: 4px solid #ffcc00;
+            margin: 20px 0;
+        }
+        .step {
+            margin-bottom: 30px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Guia de Deploy Gratuito - MegaOferta</h1>
+    
+    <p>Siga este guia passo a passo para fazer o deploy do seu site MegaOferta em plataformas 100% gratuitas, como GitHub Pages, Netlify e Vercel.</p>
+    
+    <div class="note">
+        <p><strong>Importante:</strong> Todas as opções apresentadas neste guia são gratuitas para uso básico, sem necessidade de cartão de crédito para começar!</p>
+    </div>
+    
+    <div class="step">
+        <h2>1. Crie um repositório no GitHub</h2>
+        <ul>
+            <li>Acesse <a href="https://github.com" target="_blank">GitHub</a> e faça login</li>
+            <li>Clique em "New repository"</li>
+            <li>Dê um nome ao repositório (ex: "mega-oferta-site")</li>
+            <li>Escolha a visibilidade (público ou privado)</li>
+            <li>Clique em "Create repository"</li>
+        </ul>
+    </div>
+    
+    <div class="step">
+        <h2>2. Configure o Git no seu ambiente local</h2>
+        <pre><code># Inicialize o Git (se ainda não estiver inicializado)
+git init
+# Adicione o repositório remoto
+git remote add origin https://github.com/SEU-USUARIO/mega-oferta-site.git
+# Adicione todos os arquivos
+git add .
+# Commit das mudanças
+git commit -m "Versão inicial do MegaOferta site"
+# Envie para o GitHub
+git push -u origin main</code></pre>
+    </div>
+    
+    <div class="step">
+        <h2>3. Configure o GitHub Pages</h2>
+        
+        <h3>Método 1: Usando a interface do GitHub</h3>
+        <ol>
+            <li>Acesse seu repositório no GitHub</li>
+            <li>Vá para "Settings" > "Pages"</li>
+            <li>Em "Source", selecione "GitHub Actions"</li>
+            <li>Crie um novo workflow para GitHub Pages</li>
+        </ol>
+        
+        <h3>Método 2: Usando GitHub Actions (recomendado)</h3>
+        <ol>
+            <li>No seu repositório, crie uma pasta <code>.github/workflows/</code></li>
+            <li>Crie um arquivo <code>deploy.yml</code> dentro dessa pasta</li>
+            <li>Adicione o seguinte conteúdo:</li>
+        </ol>
+        
+        <pre><code>name: Deploy to GitHub Pages
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist
+          branch: gh-pages</code></pre>
+    </div>
+    
+    <div class="step">
+        <h2>4. Ajustes para GitHub Pages (importante!)</h2>
+        
+        <p>Como o GitHub Pages serve o site a partir de um subdiretório, você precisará fazer alguns ajustes:</p>
+        
+        <ol>
+            <li>
+                <p>Antes de fazer o build, altere temporariamente o arquivo <code>vite.config.ts</code> para adicionar a base path:</p>
+                <pre><code>// Em vite.config.ts, adicione a propriedade base:
+export default defineConfig({
+  // outras configurações...
+  base: "/mega-oferta-site/", // Use o nome do seu repositório
+  // outras configurações...
+});</code></pre>
+                <div class="note">
+                    <p><strong>Nota:</strong> Como este arquivo não pode ser modificado no ambiente Replit, você precisará fazer essa alteração após baixar o código para seu ambiente local.</p>
+                </div>
+            </li>
+            <li>Atualize as rotas no seu aplicativo para considerar o base path</li>
+            <li>Para imagens e assets, use caminhos relativos ao base path</li>
+        </ol>
+    </div>
+    
+    <div class="step">
+        <h2>5. Acesse seu site</h2>
+        
+        <p>Após o deploy ser concluído, seu site estará disponível em:</p>
+        <code>https://SEU-USUARIO.github.io/mega-oferta-site/</code>
+    </div>
+    
+    <div class="step">
+        <h2>Ajustes para deploy em outras plataformas gratuitas (mais fácil)</h2>
+        
+        <h3>Netlify (Recomendado - 100% Gratuito)</h3>
+        <p>O Netlify oferece hospedagem gratuita para sites estáticos com limite de banda generoso!</p>
+        <div class="note">
+            <p><strong>Vantagens:</strong> Mais fácil que GitHub Pages, não precisa de configurações especiais de path e oferece HTTPS, CDN global e deploy automático.</p>
+        </div>
+        <ol>
+            <li>Crie uma conta no <a href="https://www.netlify.com/" target="_blank">Netlify</a> (é gratuito, sem cartão de crédito)</li>
+            <li>Clique em "Add new site" > "Import an existing project"</li>
+            <li>Conecte com seu repositório GitHub</li>
+            <li>Configure as opções de build:
+                <ul>
+                    <li>Build command: <code>npm run build</code></li>
+                    <li>Publish directory: <code>dist</code></li>
+                </ul>
+            </li>
+            <li>Clique em "Deploy site" e pronto!</li>
+        </ol>
+        <p>Seu site ficará disponível em um domínio como <code>seu-site.netlify.app</code></p>
+        
+        <h3>Vercel (Alternativa Gratuita)</h3>
+        <p>O Vercel também oferece um plano totalmente gratuito para projetos pessoais!</p>
+        <div class="note">
+            <p><strong>Vantagens:</strong> Interface amigável, otimizado para React, além de oferecer análises de performance e previews automáticos para cada commit.</p>
+        </div>
+        <ol>
+            <li>Crie uma conta no <a href="https://vercel.com/" target="_blank">Vercel</a> (gratuito, sem cartão)</li>
+            <li>Clique em "Add New" > "Project"</li>
+            <li>Importe seu repositório GitHub</li>
+            <li>Configure as opções de build:
+                <ul>
+                    <li>Framework Preset: Vite</li>
+                    <li>Build Command: <code>npm run build</code></li>
+                    <li>Output Directory: <code>dist</code></li>
+                </ul>
+            </li>
+            <li>Clique em "Deploy" e aguarde o processo terminar</li>
+        </ol>
+        <p>Seu site ficará disponível em um domínio como <code>seu-site.vercel.app</code></p>
+    </div>
+    
+    <div class="step">
+        <h2>Opção super fácil: Deploy direto pelo Netlify Drop (sem GitHub)</h2>
+        
+        <p>Se você não quer usar o GitHub ou configurar repositórios, esta é a opção mais simples:</p>
+        
+        <ol>
+            <li>Execute <code>npm run build</code> em seu computador para gerar a pasta <code>dist</code></li>
+            <li>Acesse <a href="https://app.netlify.com/drop" target="_blank">https://app.netlify.com/drop</a></li>
+            <li>Simplesmente arraste e solte a pasta <code>dist</code> na área indicada</li>
+            <li>Pronto! Seu site está online gratuitamente em segundos</li>
+        </ol>
+        
+        <div class="note">
+            <p><strong>Nota:</strong> Com esta opção, para atualizar o site no futuro, você precisará repetir este processo. Para atualizações automáticas, use as opções com GitHub descritas acima.</p>
+        </div>
+    </div>
+    
+    <div class="step">
+        <h2>Comandos úteis para desenvolvimento</h2>
+        
+        <pre><code># Iniciar o servidor de desenvolvimento
+npm run dev
+# Fazer o build para produção
+npm run build
+# Visualizar o site após o build
+# (Isso não é necessário para o deploy, mas pode ser útil para testes)
+npm run preview</code></pre>
+    </div>
+    
+    <footer>
+        <p>Este guia foi criado para ajudar no deploy do site MegaOferta usando apenas plataformas <strong>100% gratuitas</strong>, sem necessidade de cartão de crédito.</p>
+        <p class="note" style="margin-top: 10px; font-weight: bold;">Todas as opções mencionadas (GitHub Pages, Netlify e Vercel) possuem planos completamente gratuitos para uso pessoal!</p>
+    </footer>
+</body>
+</html>
+// vite.config.ts
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+import runtimeErrorModal from "@replit/vite-plugin-runtime-error-modal";
+import cartographer from "@replit/vite-plugin-cartographer";
+import themeJson from "@replit/vite-plugin-shadcn-theme-json";
+export default defineConfig({
+  plugins: [
+    react(),
+    runtimeErrorModal({
+      autoClose: true,
+    }),
+    cartographer({
+      sourceMap: true,
+      packageManagers: ["npm"],
+    }),
+    themeJson(),
+  ],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./client/src"),
+      "@shared": path.resolve(__dirname, "./shared"),
+      "@assets": path.resolve(__dirname, "./attached_assets"),
+    },
+  },
+  server: {
+    port: 3000,
+    host: "0.0.0.0",
+  },
+});
+// tailwind.config.ts
+import { type Config } from "tailwindcss";
+import { fontFamily } from "tailwindcss/defaultTheme";
+export default {
+  content: ["./index.html", "./client/src/**/*.{js,ts,jsx,tsx}"],
+  darkMode: ["class"],
+  theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)", ...fontFamily.sans],
+      },
+    },
+  },
+  plugins: [
+    require("@tailwindcss/typography"),
+  ],
+} satisfies Config;
+// theme.json
+{
+  "primary": "#2563eb",
+  "variant": "professional",
+  "appearance": "light",
+  "radius": 0.5
+}
+// package.json
+{
+  "name": "rest-express",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "tsx server/index.ts",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.3.2",
+    "@radix-ui/react-avatar": "^1.0.4",
+    "@radix-ui/react-dialog": "^1.0.5",
+    "@radix-ui/react-label": "^2.0.2",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@tanstack/react-query": "^5.8.4",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.0.0",
+    "express": "^4.18.2",
+    "lucide-react": "^0.293.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.48.2",
+    "tailwind-merge": "^2.0.0",
+    "tailwindcss-animate": "^1.0.7",
+    "wouter": "^2.12.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "tsx": "^4.1.4",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0"
+  }
+}
+// drizzle.config.ts
+import type { Config } from "drizzle-kit";
+export default {
+  schema: "./shared/schema.ts",
+  out: "./drizzle",
+  driver: "pg",
+  dbCredentials: {
+    connectionString: process.env.DATABASE_URL || "",
+  },
+} satisfies Config;
+// postcss.config.js
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
